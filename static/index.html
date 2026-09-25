@@ -277,11 +277,11 @@ input[type="range"]{flex:1 1 auto;width:auto;min-width:0;max-width:100%;accent-c
   <div class="tabs" id="tabBar" role="tablist" aria-label="Filter perkakas">
     <button data-cat="all" class="active" role="tab" aria-selected="true">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-      Semua <span class="count">6</span>
+      Semua <span class="count">7</span>
     </button>
     <button data-cat="pdf" role="tab" aria-selected="false">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8L19 8v13.5H6z"/><path d="M13.5 2.5V8H19"/><path d="M9 13h6M9 16.5h6"/></svg>
-      PDF <span class="count">3</span>
+      PDF <span class="count">4</span>
     </button>
     <button data-cat="img" role="tab" aria-selected="false">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 18l5-5 3.5 3.5L16.5 13l3 3"/></svg>
@@ -331,6 +331,21 @@ input[type="range"]{flex:1 1 auto;width:auto;min-width:0;max-width:100%;accent-c
       <div class="card-desc">Ubah tumpukan foto catatan atau scan tugas jadi satu file PDF yang rapi dan gampang dikirim.</div>
       <div class="card-meta">Bisa pilih banyak gambar</div>
       <button class="btn-action" type="button" onclick="openTool('img-to-pdf')">Ubah ke PDF
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="card" data-cat="pdf">
+      <div class="card-top">
+        <div class="icon-tile" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><circle cx="10.5" cy="12.5" r="1.4"/><path d="M7.5 17.5l2.5-2.5 1.8 1.8 2-2 2.7 2.7"/></svg>
+        </div>
+        <span class="eyebrow">PDF</span>
+      </div>
+      <div class="card-title">PDF ke Foto</div>
+      <div class="card-desc">Tiap halaman PDF jadi file gambar. Pilih PNG atau JPEG plus DPI-nya, kalau halamannya banyak hasilnya dikirim sebagai ZIP.</div>
+      <div class="card-meta">PNG / JPEG - DPI 96-300</div>
+      <button class="btn-action" type="button" onclick="openTool('pdf-to-img')">Export ke Foto
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
@@ -468,6 +483,31 @@ const toolsConfig = {
     multiple: true,
     accept: 'image/*',
     fields: ''
+  },
+  'pdf-to-img': {
+    title: 'Ubah Halaman PDF Jadi Foto',
+    kicker: 'PDF - Ke Foto',
+    sub: 'Pilih 1 file PDF. Tiap halamannya diekspor jadi gambar, kalau banyak hasilnya jadi ZIP.',
+    endpoint: '/api/pdf/to-img',
+    multiple: false,
+    accept: '.pdf',
+    fields: `
+      <div class="form-group">
+        <label for="fmtInput">Format Gambar</label>
+        <select name="format" id="fmtInput">
+          <option value="PNG">PNG (tajam, file lebih besar)</option>
+          <option value="JPEG">JPEG (ringan, cocok buat share)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="dpiInput">Kualitas (DPI)</label>
+        <select name="dpi" id="dpiInput">
+          <option value="96">96 - cepat, buat preview di layar</option>
+          <option value="150" selected>150 - seimbang, rekomendasi</option>
+          <option value="300">300 - tajam, buat cetak</option>
+        </select>
+      </div>
+    `
   },
   'img-compress': {
     title: 'Kompres Ukuran Gambar',
@@ -636,6 +676,8 @@ document.getElementById('toolForm').onsubmit = async (e) => {
   if(sc) formData.append('scale', sc.value);
   const fmt = document.getElementById('fmtInput');
   if(fmt) formData.append('format', fmt.value);
+  const dpi = document.getElementById('dpiInput');
+  if(dpi) formData.append('dpi', dpi.value);
 
   document.getElementById('spinner').classList.add('show');
   document.getElementById('btnSubmit').disabled = true;
@@ -668,7 +710,16 @@ document.getElementById('toolForm').onsubmit = async (e) => {
     setTimeout(function(){ window.URL.revokeObjectURL(url); }, 4000);
     closeModal();
 
-    if(origH && resH){
+    if(currentTool === 'pdf-to-img'){
+      const pages = Number(res.headers.get('X-Page-Count'));
+      if(isFinite(pages) && pages > 1){
+        showToast('Beres, PDF sudah jadi foto.', pages + ' halaman jadi ' + pages + ' file gambar.<br>File ' + fn + ' sudah tersimpan di HP.');
+      } else if(pages === 1){
+        showToast('Beres, PDF sudah jadi foto.', '1 halaman jadi foto.<br>File ' + fn + ' sudah tersimpan di HP.');
+      } else {
+        showToast('Beres, PDF sudah jadi foto.', 'File ' + fn + ' sudah tersimpan di HP.');
+      }
+    } else if(origH && resH){
       const o = Number(origH), r = Number(resH);
       if(isFinite(o) && isFinite(r) && o > 0){
         let pct = Math.round((1 - r / o) * 100);

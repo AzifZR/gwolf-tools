@@ -1,0 +1,5 @@
+# Gwolf Toolbox dependencies
+Pillow
+pypdf
+# renderer PDF->gambar, alternatif ghostscript
+pypdfium2

@@ -152,6 +152,118 @@ def _pypdf_compress(input_bytes):
         return None
 
 
+def _render_pdf_pypdfium2(pdf_bytes, dpi, fmt):
+    try:
+        import pypdfium2
+    except Exception:
+        return None
+    try:
+        pdf = pypdfium2.PdfDocument(pdf_bytes)
+    except Exception:
+        return None
+    try:
+        n = len(pdf)
+        if n == 0:
+            return None
+        scale = dpi / 72.0
+        out = []
+        for i in range(n):
+            try:
+                page = pdf[i]
+                pil = page.render(scale=scale).to_pil()
+                buf = io.BytesIO()
+                if fmt == "JPEG":
+                    if pil.mode in ("RGBA", "LA", "P", "PA"):
+                        pil = pil.convert("RGB")
+                    elif pil.mode != "RGB":
+                        try:
+                            pil = pil.convert("RGB")
+                        except Exception:
+                            pil = pil.convert("RGB")
+                    pil.save(buf, format="JPEG", quality=85, optimize=True, progressive=True)
+                else:
+                    pil.save(buf, format="PNG", optimize=True, compress_level=9)
+                data = buf.getvalue()
+                if not data:
+                    return None
+                out.append(data)
+            except Exception:
+                return None
+        if not out:
+            return None
+        return out
+    except Exception:
+        return None
+    finally:
+        try:
+            pdf.close()
+        except Exception:
+            pass
+
+
+def _render_pdf_gs(pdf_bytes, dpi, fmt):
+    gs = shutil.which("gs")
+    if not gs:
+        for cand in ("gswin64c", "gswin32c", "gsc"):
+            gs = shutil.which(cand)
+            if gs:
+                break
+    if not gs:
+        return None
+    tmpdir = None
+    tmp_in = None
+    try:
+        tmpdir = tempfile.mkdtemp()
+        fd, tmp_in = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        Path(tmp_in).write_bytes(pdf_bytes)
+        ext = "png" if fmt == "PNG" else "jpg"
+        device = "png16m" if fmt == "PNG" else "jpeg"
+        pattern = os.path.join(tmpdir, f"page%d.{ext}")
+        if fmt == "PNG":
+            cmd = [gs, "-dNOPAUSE", "-dBATCH", f"-sDEVICE={device}", f"-r{dpi}", f"-o{pattern}", tmp_in]
+        else:
+            cmd = [gs, "-dNOPAUSE", "-dBATCH", f"-sDEVICE={device}", "-dJPEGQ=85", f"-r{dpi}", f"-o{pattern}", tmp_in]
+        subprocess.run(cmd, timeout=60, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        files = []
+        for p in Path(tmpdir).glob(f"page*.{ext}"):
+            name = p.name
+            # extract number between 'page' and '.ext'
+            try:
+                num = name[len("page"):-len("."+ext)]
+                files.append((int(num), p))
+            except Exception:
+                continue
+        if not files:
+            return None
+        files.sort(key=lambda x: x[0])
+        out = []
+        for _, p in files:
+            try:
+                data = p.read_bytes()
+                if not data:
+                    return None
+                out.append(data)
+            except Exception:
+                return None
+        if not out:
+            return None
+        return out
+    except Exception:
+        return None
+    finally:
+        if tmp_in:
+            try:
+                os.remove(tmp_in)
+            except Exception:
+                pass
+        if tmpdir:
+            try:
+                shutil.rmtree(tmpdir)
+            except Exception:
+                pass
+
+
 class ToolboxHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[tools] {self.client_address[0]} {format % args}", flush=True)
@@ -164,7 +276,7 @@ class ToolboxHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
-    def send_file_download(self, data_bytes, filename, mime_type="application/octet-stream", original_size=None):
+    def send_file_download(self, data_bytes, filename, mime_type="application/octet-stream", original_size=None, page_count=None):
         if original_size is None:
             original_size = len(data_bytes)
         self.send_response(200)
@@ -173,6 +285,8 @@ class ToolboxHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data_bytes)))
         self.send_header("X-Original-Size", str(int(original_size)))
         self.send_header("X-Result-Size", str(int(len(data_bytes))))
+        if page_count is not None:
+            self.send_header("X-Page-Count", str(int(page_count)))
         self.end_headers()
         self.wfile.write(data_bytes)
 
@@ -195,7 +309,7 @@ class ToolboxHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/status":
-            self.send_json({"status": "online", "port": PORT, "features": ["pdf_merge", "pdf_compress", "img_to_pdf", "img_compress", "img_upscale", "img_convert"]})
+            self.send_json({"status": "online", "port": PORT, "features": ["pdf_merge", "pdf_compress", "img_to_pdf", "img_compress", "img_upscale", "img_convert", "pdf_to_img"]})
             return
 
         self.send_response(404)
@@ -284,6 +398,99 @@ class ToolboxHandler(BaseHTTPRequestHandler):
                     best = b
                 self.send_file_download(best, f"compressed_{fn}", "application/pdf", original_size=orig_len)
                 return
+
+            elif path == "/api/pdf/to-img":
+                if not files:
+                    self.send_json({"error": "No PDF file uploaded"}, 400); return
+                fn, b = files[0]
+                orig_len = len(b)
+                fmt = form_data.get("format", "PNG").upper().strip()
+                if fmt == "JPG":
+                    fmt = "JPEG"
+                if fmt not in ("PNG", "JPEG"):
+                    fmt = "PNG"
+                try:
+                    dpi = int(form_data.get("dpi", "150"))
+                except Exception:
+                    dpi = 150
+                if dpi not in (96, 150, 300):
+                    dpi = 150
+                stem = Path(fn).stem if Path(fn).stem else "document"
+                # quick validate PDF header to give clear error for non-PDF
+                try:
+                    pypdf.PdfReader(io.BytesIO(b))
+                except Exception:
+                    # let render layer try, but if both fail will return engine or invalid error
+                    # we still attempt render; if fails we return invalid PDF error
+                    pass
+                images = None
+                try:
+                    images = _render_pdf_pypdfium2(b, dpi, fmt)
+                except Exception:
+                    images = None
+                if not images:
+                    try:
+                        images = _render_pdf_gs(b, dpi, fmt)
+                    except Exception:
+                        images = None
+                if not images or len(images) == 0 or any(not x for x in images):
+                    # check if any engine exists
+                    has_pdfium = False
+                    try:
+                        import pypdfium2
+                        has_pdfium = True
+                    except Exception:
+                        has_pdfium = False
+                    has_gs = shutil.which("gs") is not None
+                    if not has_gs:
+                        for cand in ("gswin64c", "gswin32c", "gsc"):
+                            if shutil.which(cand):
+                                has_gs = True
+                                break
+                    if not has_pdfium and not has_gs:
+                        self.send_json({"error": "Render engine tidak tersedia. Install: pip install pypdfium2 (atau pkg install ghostscript di Termux)"}, 500); return
+                    self.send_json({"error": "Failed to render PDF"}, 500); return
+                page_count = len(images)
+                # validate images are openable
+                try:
+                    for data in images:
+                        im = Image.open(io.BytesIO(data))
+                        im.verify()
+                except Exception:
+                    self.send_json({"error": "Failed to render PDF"}, 500); return
+                ext = "png" if fmt == "PNG" else "jpg"
+                if page_count == 1:
+                    data = images[0]
+                    mime = "image/png" if fmt == "PNG" else "image/jpeg"
+                    filename = f"{stem}_page1.{ext}"
+                    self.send_response(200)
+                    self.send_header("Content-Type", mime)
+                    self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("X-Original-Size", str(int(orig_len)))
+                    self.send_header("X-Result-Size", str(int(len(data))))
+                    self.send_header("X-Page-Count", str(int(page_count)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                else:
+                    zip_buf = io.BytesIO()
+                    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                        for idx, data in enumerate(images, start=1):
+                            arcname = f"{stem}_page{idx}.{ext}"
+                            zf.writestr(arcname, data)
+                    zip_bytes = zip_buf.getvalue()
+                    filename = f"fotopdf_{stem}.zip"
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/zip")
+                    self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+                    self.send_header("Content-Length", str(len(zip_bytes)))
+                    self.send_header("X-Original-Size", str(int(orig_len)))
+                    self.send_header("X-Result-Size", str(int(len(zip_bytes))))
+                    self.send_header("X-Page-Count", str(int(page_count)))
+                    self.end_headers()
+                    self.wfile.write(zip_bytes)
+                    return
 
             elif path == "/api/img/to-pdf":
                 if not files:
