@@ -1,0 +1,3 @@
+pdf2docx
+# OPTIONAL: ghostscript binary (pkg install ghostscript)
+# OPTIONAL: libreoffice/soffice binary (pkg install libreoffice)

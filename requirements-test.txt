@@ -1,0 +1,2 @@
+reportlab
+# NOTE: playwright+chromium needed for tests/test_ui.py (pip install playwright && playwright install chromium)
