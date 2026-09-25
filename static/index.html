@@ -40,7 +40,8 @@
   --radius-sm:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden}
+body{overflow-x:hidden}
 body{
   background:
     radial-gradient(700px 320px at 50% -80px, var(--bg-glow), transparent 70%),
@@ -80,22 +81,29 @@ body{
 .tabs{
   display:flex;gap:4px;background:var(--surface);
   padding:4px;border-radius:12px;border:1px solid var(--border);
-  margin-bottom:16px;
+  margin-bottom:16px;max-width:100%;min-width:0;
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
 }
+.tabs::-webkit-scrollbar{display:none}
 .tabs button{
-  flex:1;appearance:none;background:transparent;border:1px solid transparent;
+  flex:1 1 0;min-width:0;appearance:none;background:transparent;border:1px solid transparent;
   color:var(--muted);padding:0 12px;min-height:44px;font-size:13px;font-weight:700;
   border-radius:9px;cursor:pointer;transition:background .16s ease,color .16s ease,border-color .16s ease;
-  display:flex;align-items:center;justify-content:center;gap:8px;
+  display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;
 }
 .tabs button svg{flex:0 0 auto;opacity:.8}
 .tabs button:hover{color:var(--text);background:var(--surface-2)}
 .tabs button.active{background:var(--surface-2);color:var(--text);border-color:var(--border-strong)}
 .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .count{
-  font-size:11px;font-weight:700;line-height:1;min-width:20px;height:20px;padding:0 6px;
+  flex:0 0 auto;font-size:11px;font-weight:700;line-height:1;min-width:20px;height:20px;padding:0 6px;
   display:inline-grid;place-items:center;border-radius:999px;
   background:rgba(255,255,255,0.07);border:1px solid var(--border);color:var(--muted);
+}
+@media (max-width:430px){
+  .tabs{gap:2px;padding:3px}
+  .tabs button{padding:0 8px;gap:6px;font-size:12px}
+  .count{min-width:18px;height:18px;font-size:10px}
 }
 .tabs button.active .count{background:var(--accent-soft);border-color:rgba(255,194,71,0.35);color:var(--accent)}
 /* ---------- Grid + cards ---------- */
@@ -104,12 +112,11 @@ body{
 @media (max-width:480px){.grid{grid-template-columns:1fr}.hero h1{font-size:20px}}
 .card{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  padding:16px;display:flex;flex-direction:column;gap:0;cursor:pointer;
+  padding:16px;display:flex;flex-direction:column;gap:0;cursor:default;
   transition:transform .16s ease,border-color .16s ease,background .16s ease;
   min-height:100%;
 }
 .card:hover{border-color:var(--border-strong);background:var(--surface-2);transform:translateY(-2px)}
-.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px}
 .icon-tile{
   width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:0 0 44px;
@@ -132,66 +139,81 @@ body{
 }
 .card-action:hover{opacity:.92}
 .card-action:active{transform:scale(0.99)}
-.card:hover .card-action{background:var(--accent);color:var(--accent-ink)}
+.card-action:hover{background:var(--accent);color:var(--accent-ink)}
 .card-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card-action svg{flex:0 0 auto}
-.foot{margin-top:20px;display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--faint);font-size:12px}
+.foot{margin-top:20px;display:flex;justify-content:space-between;gap:8px 12px;align-items:center;flex-wrap:wrap;color:var(--faint);font-size:12px}
+.foot span{min-width:0}
 /* ---------- Modal ---------- */
-.modal{position:fixed;inset:0;background:rgba(5,6,8,0.72);backdrop-filter:blur(6px);display:none;place-items:center;z-index:50;padding:16px}
+.modal{position:fixed;inset:0;background:rgba(5,6,8,0.72);backdrop-filter:blur(6px);display:none;place-items:center;z-index:50;padding:16px;overflow:hidden}
 .modal.show{display:grid;animation:fadeIn .16s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal-box{
   background:#141920;border:1px solid var(--border-strong);border-radius:16px;
-  max-width:460px;width:100%;padding:20px;position:relative;
-  box-shadow:0 24px 60px rgba(0,0,0,0.55);max-height:calc(100vh - 32px);overflow:auto;
+  max-width:460px;width:100%;min-width:0;padding:20px;position:relative;
+  box-shadow:0 24px 60px rgba(0,0,0,0.55);max-height:calc(100vh - 32px);overflow-y:auto;overflow-x:hidden;
 }
+/* Guard: tidak ada keturunan modal yang boleh mendorong lebar popup */
+.modal-box, .modal-box *{max-width:100%}
+.modal-box input, .modal-box select, .modal-box output, .modal-box p, .modal-box div{min-width:0}
 @media (max-width:520px){
   .modal{place-items:end center;padding:12px}
   .modal-box{border-radius:18px 18px 14px 14px;padding:20px 16px 16px}
 }
 .modal-kicker{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
-.modal-box h3{font-size:16px;letter-spacing:-0.2px;margin-bottom:4px;padding-right:36px}
+.modal-box h3{font-size:16px;letter-spacing:-0.2px;margin-bottom:4px;padding-right:52px}
 .modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:16px}
 .modal-close{
-  position:absolute;top:12px;right:12px;width:40px;height:40px;border-radius:10px;
+  position:absolute;top:14px;right:22px;width:40px;height:40px;border-radius:10px;
   background:transparent;border:1px solid transparent;color:var(--muted);
   display:grid;place-items:center;cursor:pointer;transition:background .14s ease,color .14s ease;
+}
+@media (max-width:520px){
+  .modal-close{top:12px;right:18px}
 }
 .modal-close:hover{background:var(--surface-2);color:var(--text)}
 .modal-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .form-group{margin-bottom:12px}
 .form-group label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:6px}
 .file-drop{
+  display:block;position:relative;overflow:hidden;
   border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);
   background:var(--surface);padding:14px;text-align:center;cursor:pointer;
   transition:border-color .14s ease,background .14s ease;
 }
 .file-drop:hover{border-color:var(--accent);background:var(--surface-2)}
-.file-drop input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+/* Hidden-input pattern: input menutupi seluruh zona tap, tidak boleh keluar dari label */
+.file-drop input[type="file"]{
+  position:absolute;inset:0;width:100%;height:100%;min-width:0;max-width:100%;
+  margin:0;padding:0;opacity:0;cursor:pointer;
+}
 .file-drop strong{display:block;font-size:13px;margin-bottom:2px}
 .file-drop span{display:block;font-size:12px;color:var(--muted)}
-.file-list{margin-top:8px;font-size:12px;color:var(--muted);text-align:left;display:none;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.file-list{margin-top:8px;font-size:12px;color:var(--muted);text-align:left;display:none;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:8px 10px;overflow-wrap:anywhere;word-break:break-word;min-width:0}
 .file-list.has-files{display:block}
+#dynamicFields{min-width:0}
 input[type="file"],select{
-  width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);
+  width:100%;max-width:100%;min-width:0;background:var(--surface);border:1px solid var(--border);color:var(--text);
   padding:0 12px;min-height:44px;border-radius:10px;font-size:13px;outline:none;
 }
 select:focus,input[type="file"]:focus{border-color:var(--accent)}
-input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
-.range-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
-.range-row output{font-weight:800;font-size:13px;color:var(--accent);min-width:52px;text-align:right}
+input[type="range"]{flex:1 1 auto;width:auto;min-width:0;max-width:100%;accent-color:var(--accent);min-height:32px}
+.range-row{display:flex;align-items:center;gap:12px;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.range-row output{flex:0 0 auto;font-weight:800;font-size:13px;color:var(--accent);min-width:52px;text-align:right;white-space:nowrap}
 .hint{font-size:12px;color:var(--faint);margin-top:6px}
 .btn-submit{
-  width:100%;background:var(--accent);color:var(--accent-ink);border:none;min-height:48px;
+  width:100%;max-width:100%;min-width:0;background:var(--accent);color:var(--accent-ink);border:none;min-height:48px;
   padding:12px;border-radius:11px;font-weight:800;font-size:14px;cursor:pointer;margin-top:8px;
   display:flex;align-items:center;justify-content:center;gap:10px;
   transition:filter .14s ease,transform .12s ease;
 }
+.btn-submit svg{flex:0 0 auto}
+.btn-submit span{min-width:0}
 .btn-submit:hover{filter:brightness(1.05)}
 .btn-submit:active{transform:scale(0.99)}
 .btn-submit:disabled{opacity:.6;cursor:wait}
 .btn-submit:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.load-state{display:none;gap:12px;align-items:center;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.load-state{display:none;gap:12px;align-items:center;min-width:0;margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
 .load-state.show{display:flex}
 .spinner{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:3px solid var(--border-strong);border-top-color:var(--accent);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -203,7 +225,7 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
 .form-error{
   display:none;margin-top:12px;font-size:13px;line-height:1.5;color:#FFD7D7;
   background:rgba(242,109,109,0.10);border:1px solid rgba(242,109,109,0.4);
-  border-radius:10px;padding:10px 12px;
+  border-radius:10px;padding:10px 12px;min-width:0;overflow-wrap:anywhere;word-break:break-word;
 }
 .form-error.show{display:block}
 /* ---------- Toast ---------- */
@@ -217,7 +239,7 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
 }
 .toast.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
 .toast-mark{width:36px;height:36px;flex:0 0 36px;border-radius:10px;display:grid;place-items:center;background:rgba(52,211,153,0.14);border:1px solid rgba(52,211,153,0.35);color:var(--success)}
-.toast-body{flex:1;min-width:0}
+.toast-body{flex:1;min-width:0;overflow-wrap:anywhere;word-break:break-word}
 .toast-body strong{display:block;font-size:13px;margin-bottom:2px}
 .toast-body span{display:block;font-size:12.5px;color:var(--muted)}
 .toast-body .saving{color:var(--text);font-weight:700}
@@ -268,7 +290,7 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
   </div>
 
   <div class="grid" id="toolsGrid">
-    <div class="card" data-cat="pdf" onclick="openTool('merge')" tabindex="0" role="button" aria-label="Buka tool Gabung PDF">
+    <div class="card" data-cat="pdf">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h6L18 8.5V20H7z"/><path d="M12.5 3.5V8.5H18"/><path d="M15 13.5h5.5v7H15z"/><path d="M17.75 13.5v7"/></svg>
@@ -278,12 +300,12 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Gabung PDF</div>
       <div class="card-desc">Satukan 2 file PDF atau lebih, misal cover + isi + lampiran tugas, jadi satu dokumen utuh.</div>
       <div class="card-meta">Bisa pilih banyak file .pdf</div>
-      <button class="btn-action" type="button" tabindex="-1">Pilih File
+      <button class="btn-action" type="button" onclick="openTool('merge')">Pilih File
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
 
-    <div class="card" data-cat="pdf" onclick="openTool('pdf-compress')" tabindex="0" role="button" aria-label="Buka tool Kompres PDF">
+    <div class="card" data-cat="pdf">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/><path d="M12 12v6"/><path d="M9.2 15.2L12 18l2.8-2.8"/></svg>
@@ -293,12 +315,12 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Kompres PDF</div>
       <div class="card-desc">Perkecil ukuran PDF biar lolos limit upload Classroom atau LMS, teks tetap kebaca jelas.</div>
       <div class="card-meta">1 file .pdf per proses</div>
-      <button class="btn-action" type="button" tabindex="-1">Kompres
+      <button class="btn-action" type="button" onclick="openTool('pdf-compress')">Kompres
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
 
-    <div class="card" data-cat="pdf" onclick="openTool('img-to-pdf')" tabindex="0" role="button" aria-label="Buka tool Foto ke PDF">
+    <div class="card" data-cat="pdf">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.4"/><path d="M4.5 16.5l3-3 2.2 2.2 2-2 2.3 2.3"/><path d="M14 9h5.5v10H14"/><path d="M16.75 9v10"/></svg>
@@ -308,12 +330,12 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Foto / Scan ke PDF</div>
       <div class="card-desc">Ubah tumpukan foto catatan atau scan tugas jadi satu file PDF yang rapi dan gampang dikirim.</div>
       <div class="card-meta">Bisa pilih banyak gambar</div>
-      <button class="btn-action" type="button" tabindex="-1">Ubah ke PDF
+      <button class="btn-action" type="button" onclick="openTool('img-to-pdf')">Ubah ke PDF
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
 
-    <div class="card" data-cat="img" onclick="openTool('img-compress')" tabindex="0" role="button" aria-label="Buka tool Kompres Gambar">
+    <div class="card" data-cat="img">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 18l5-5 3.5 3.5 2-2"/><path d="M16 13v5"/><path d="M14.2 16.2L16 18l1.8-1.8"/></svg>
@@ -323,12 +345,12 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Kompres Gambar</div>
       <div class="card-desc">Pangkas ukuran JPG, PNG, atau WebP sampai jauh lebih kecil, kualitasnya masih aman dilihat.</div>
       <div class="card-meta">Atur kualitas 20-95%</div>
-      <button class="btn-action" type="button" tabindex="-1">Pilih Gambar
+      <button class="btn-action" type="button" onclick="openTool('img-compress')">Pilih Gambar
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
 
-    <div class="card" data-cat="img" onclick="openTool('img-upscale')" tabindex="0" role="button" aria-label="Buka tool Perbesar Resolusi">
+    <div class="card" data-cat="img">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M15.8 15.8L20.5 20.5"/><path d="M11 8.5v5M8.5 11h5"/></svg>
@@ -338,12 +360,12 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Perbesar Resolusi</div>
       <div class="card-desc">Naikkan resolusi foto yang pecah jadi 2x atau 4x lipat pakai metode Lanczos, cocok buat cetak.</div>
       <div class="card-meta">Skala 2x atau 4x</div>
-      <button class="btn-action" type="button" tabindex="-1">Perbesar
+      <button class="btn-action" type="button" onclick="openTool('img-upscale')">Perbesar
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
 
-    <div class="card" data-cat="img" onclick="openTool('img-convert')" tabindex="0" role="button" aria-label="Buka tool Convert Format Gambar">
+    <div class="card" data-cat="img">
       <div class="card-top">
         <div class="icon-tile" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12"/><path d="M13 4.5L16.5 8 13 11.5"/><path d="M20 16H8"/><path d="M11 12.5L7.5 16l3.5 3.5"/></svg>
@@ -353,7 +375,7 @@ input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px}
       <div class="card-title">Convert Format Gambar</div>
       <div class="card-desc">Pindah format antara PNG, JPEG, dan WebP dalam sekali klik, tanpa perlu buka editor berat.</div>
       <div class="card-meta">PNG - JPEG - WEBP</div>
-      <button class="btn-action" type="button" tabindex="-1">Convert
+      <button class="btn-action" type="button" onclick="openTool('img-convert')">Convert
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
     </div>
@@ -590,17 +612,6 @@ document.addEventListener('keydown', function(e){
     document.getElementById('toast').classList.remove('show');
   }
 });
-document.querySelectorAll('.card').forEach(function(card){
-  card.addEventListener('keydown', function(e){
-    if(e.key === 'Enter' || e.key === ' '){
-      e.preventDefault();
-      const m = card.getAttribute('onclick') || '';
-      const k = (m.match(/openTool\('([^']+)'\)/) || [])[1];
-      if(k) openTool(k);
-    }
-  });
-});
-
 document.getElementById('toolForm').onsubmit = async (e) => {
   e.preventDefault();
   const cfg = toolsConfig[currentTool];
