@@ -3,3 +3,7 @@ Pillow
 pypdf
 # renderer PDF->gambar, alternatif ghostscript
 pypdfium2
+python-docx
+# OPTIONAL: libreoffice binary (full-fidelity word)
+# OPTIONAL: pdf2docx (layout-preserving pdf->word)
+
