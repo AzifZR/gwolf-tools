@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gwolf Toolbox — PDF & Image Utilities</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠️</text></svg>">
+<style>
+:root{
+  --bg:#09090b; --card:#121215; --card-border:#222226; --card-hover:#16161a;
+  --text:#ededed; --muted:#8e8e99; --accent:#10b981; --accent-glow:rgba(16,185,129,0.15);
+  --danger:#ef4444; --pur:#8b5cf6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.container{max-width:880px;margin:0 auto;padding:28px 16px}
+header{
+  display:flex; justify-content:space-between; align-items:center;
+  padding-bottom:16px; margin-bottom:24px; border-bottom:1px solid var(--card-border);
+}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-0.3px}
+.logo span{color:var(--muted);font-weight:400;font-size:12px}
+.badge{
+  font-size:11px; padding:4px 10px; border-radius:20px;
+  background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:var(--accent);
+}
+.tabs{
+  display:flex; gap:6px; background:rgba(255,255,255,0.02);
+  padding:4px; border-radius:10px; border:1px solid var(--card-border); margin-bottom:20px;
+}
+.tabs button{
+  flex:1; background:transparent; border:none; color:var(--muted);
+  padding:8px 12px; font-size:12px; font-weight:600; border-radius:7px; cursor:pointer;
+  transition:all 0.15s ease;
+}
+.tabs button.active{background:#1c1c21; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:14px}
+.card{
+  background:var(--card); border:1px solid var(--card-border); border-radius:12px;
+  padding:18px; display:flex; flex-direction:column; transition:transform 0.15s, border-color 0.15s;
+}
+.card:hover{border-color:#33333a; transform:translateY(-2px)}
+.card-icon{font-size:24px; margin-bottom:10px}
+.card-title{font-size:14px; font-weight:600; margin-bottom:4px}
+.card-desc{font-size:11px; color:var(--muted); margin-bottom:14px; min-height:34px}
+.btn-action{
+  margin-top:auto; width:100%; background:#fff; color:#000; border:none;
+  padding:8px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer;
+  transition:opacity 0.15s;
+}
+.btn-action:hover{opacity:0.9}
+
+/* Modal Form */
+.modal{
+  position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);
+  display:none; place-items:center; z-index:99; padding:16px;
+}
+.modal.show{display:grid}
+.modal-box{
+  background:#141418; border:1px solid #2e2e36; border-radius:14px;
+  max-width:440px; width:100%; padding:22px; position:relative; box-shadow:0 16px 40px rgba(0,0,0,0.6);
+}
+.modal-close{
+  position:absolute; top:16px; right:16px; background:transparent; border:none;
+  color:var(--muted); font-size:18px; cursor:pointer;
+}
+.form-group{margin-bottom:14px}
+label{display:block; font-size:11px; color:var(--muted); text-transform:uppercase; font-weight:600; margin-bottom:6px}
+input[type="file"], select, input[type="range"]{
+  width:100%; background:#09090b; border:1px solid var(--card-border); color:#fff;
+  padding:8px 10px; border-radius:8px; font-size:12px; outline:none;
+}
+.btn-submit{
+  width:100%; background:var(--accent); color:#000; border:none; padding:10px;
+  border-radius:8px; font-weight:700; font-size:13px; cursor:pointer; margin-top:8px;
+}
+.spinner{display:none; text-align:center; font-size:12px; color:var(--muted); margin-top:10px}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">🛠️ Gwolf <span>Toolbox</span></div>
+    <div class="badge">100% Local & Free • Termux HP</div>
+  </header>
+
+  <div class="tabs" id="tabBar">
+    <button data-cat="all" class="active">Semua Tools</button>
+    <button data-cat="pdf">📄 PDF & Dokumen</button>
+    <button data-cat="img">🖼️ Gambar & Media</button>
+  </div>
+
+  <div class="grid" id="toolsGrid">
+    <!-- 1. PDF Merge -->
+    <div class="card" data-cat="pdf" onclick="openTool('merge')">
+      <div class="card-icon">📑</div>
+      <div class="card-title">Gabung PDF (Merge)</div>
+      <div class="card-desc">Satukan 2 atau lebih file PDF tugas kuliah menjadi satu dokumen utuh.</div>
+      <button class="btn-action">Pilih File</button>
+    </div>
+
+    <!-- 2. PDF Compress -->
+    <div class="card" data-cat="pdf" onclick="openTool('pdf-compress')">
+      <div class="card-icon">🗜️</div>
+      <div class="card-title">Kompres PDF</div>
+      <div class="card-desc">Perkecil ukuran dokumen PDF tanpa bikin teks buram buat upload Classroom/LMS.</div>
+      <button class="btn-action">Kompres</button>
+    </div>
+
+    <!-- 3. Image to PDF -->
+    <div class="card" data-cat="pdf" onclick="openTool('img-to-pdf')">
+      <div class="card-icon">📸</div>
+      <div class="card-title">Foto / Scan ke PDF</div>
+      <div class="card-desc">Ubah tumpukan foto tugas atau scan catatan menjadi satu file PDF rapi.</div>
+      <button class="btn-action">Convert ke PDF</button>
+    </div>
+
+    <!-- 4. Image Compress -->
+    <div class="card" data-cat="img" onclick="openTool('img-compress')">
+      <div class="card-icon">⚡</div>
+      <div class="card-title">Kompres Gambar</div>
+      <div class="card-desc">Hemat ukuran JPG/PNG/WebP hingga 80% dengan kualitas mata manusia terjaga.</div>
+      <button class="btn-action">Pilih Gambar</button>
+    </div>
+
+    <!-- 5. Image Upscale -->
+    <div class="card" data-cat="img" onclick="openTool('img-upscale')">
+      <div class="card-icon">🔍</div>
+      <div class="card-title">AI Super Upscaler (2x / 4x)</div>
+      <div class="card-desc">Perjelas foto yang pecah/blur jadi resolusi tinggi dengan resampling Lanczos.</div>
+      <button class="btn-action">Upscale</button>
+    </div>
+
+    <!-- 6. Image Converter -->
+    <div class="card" data-cat="img" onclick="openTool('img-convert')">
+      <div class="card-icon">🔄</div>
+      <div class="card-title">Convert Format Gambar</div>
+      <div class="card-desc">Konversi cepat antar format WebP, PNG, dan JPG tanpa ribet buka Photoshop.</div>
+      <button class="btn-action">Convert</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL POPUP -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3 id="modalTitle" style="font-size:15px;margin-bottom:14px">Eksekusi Tool</h3>
+    <form id="toolForm">
+      <div class="form-group" id="fileGroup">
+        <label id="fileLabel">Pilih File</label>
+        <input type="file" id="fileInput" required>
+      </div>
+      <div id="dynamicFields"></div>
+      <button type="submit" class="btn-submit" id="btnSubmit">Mulai Proses</button>
+      <div class="spinner" id="spinner">⏳ Memproses di HP Server... Harap tunggu sebentar.</div>
+    </form>
+  </div>
+</div>
+
+<script>
+let currentTool = '';
+
+const toolsConfig = {
+  'merge': {
+    title: '📑 Gabung Banyak PDF Jadi Satu',
+    endpoint: '/api/pdf/merge',
+    multiple: true,
+    accept: '.pdf',
+    fields: ''
+  },
+  'pdf-compress': {
+    title: '🗜️ Kompres Ukuran PDF',
+    endpoint: '/api/pdf/compress',
+    multiple: false,
+    accept: '.pdf',
+    fields: ''
+  },
+  'img-to-pdf': {
+    title: '📸 Ubah Gambar / Scan ke Dokumen PDF',
+    endpoint: '/api/img/to-pdf',
+    multiple: true,
+    accept: 'image/*',
+    fields: ''
+  },
+  'img-compress': {
+    title: '⚡ Kompres Ukuran Gambar',
+    endpoint: '/api/img/compress',
+    multiple: false,
+    accept: 'image/*',
+    fields: `
+      <div class="form-group">
+        <label>Kualitas Kompresi (Default 70%): <span id="qVal">70</span>%</label>
+        <input type="range" id="qInput" name="quality" min="20" max="95" value="70" oninput="document.getElementById('qVal').innerText=this.value">
+      </div>
+    `
+  },
+  'img-upscale': {
+    title: '🔍 Upscale Resolusi Gambar (Lanczos Resample)',
+    endpoint: '/api/img/upscale',
+    multiple: false,
+    accept: 'image/*',
+    fields: `
+      <div class="form-group">
+        <label>Skala Perbesaran</label>
+        <select name="scale" id="scaleInput">
+          <option value="2">2x Lipat Resolusi (Rekomendasi Cepat)</option>
+          <option value="4">4x Lipat Ultra Resolusi</option>
+        </select>
+      </div>
+    `
+  },
+  'img-convert': {
+    title: '🔄 Konversi Format Gambar',
+    endpoint: '/api/img/convert',
+    multiple: false,
+    accept: 'image/*',
+    fields: `
+      <div class="form-group">
+        <label>Target Format</label>
+        <select name="format" id="fmtInput">
+          <option value="PNG">PNG (Transparansi / Lossless)</option>
+          <option value="JPEG">JPEG (Standar Foto)</option>
+          <option value="WEBP">WEBP (Web Ringan)</option>
+        </select>
+      </div>
+    `
+  }
+};
+
+function openTool(key){
+  currentTool = key;
+  const cfg = toolsConfig[key];
+  document.getElementById('modalTitle').innerText = cfg.title;
+  const fi = document.getElementById('fileInput');
+  fi.multiple = cfg.multiple;
+  fi.accept = cfg.accept;
+  document.getElementById('dynamicFields').innerHTML = cfg.fields;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  document.getElementById('toolForm').reset();
+  document.getElementById('spinner').style.display = 'none';
+}
+
+document.getElementById('toolForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const cfg = toolsConfig[currentTool];
+  const fi = document.getElementById('fileInput');
+  if(!fi.files.length) return alert('Pilih file terlebih dahulu!');
+
+  const formData = new FormData();
+  for(let i=0; i<fi.files.length; i++){
+    formData.append('files', fi.files[i]);
+  }
+
+  // Dynamic values
+  const q = document.getElementById('qInput');
+  if(q) formData.append('quality', q.value);
+  const sc = document.getElementById('scaleInput');
+  if(sc) formData.append('scale', sc.value);
+  const fmt = document.getElementById('fmtInput');
+  if(fmt) formData.append('format', fmt.value);
+
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btnSubmit').disabled = true;
+
+  try {
+    const res = await fetch(cfg.endpoint, { method: 'POST', body: formData });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({error: res.statusText}));
+      throw new Error(err.error || 'Gagal memproses file');
+    }
+    
+    // Auto download
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition');
+    let fn = 'hasil_download';
+    if(cd && cd.includes('filename="')){
+      fn = cd.split('filename="')[1].split('"')[0];
+    }
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fn;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    closeModal();
+  } catch(err){
+    alert('Error: ' + err.message);
+  } finally {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('btnSubmit').disabled = false;
+  }
+};
+
+// Filter tabs
+document.getElementById('tabBar').onclick = (e) => {
+  if(!e.target.dataset.cat) return;
+  document.querySelectorAll('#tabBar button').forEach(b=>b.classList.remove('active'));
+  e.target.classList.add('active');
+  const cat = e.target.dataset.cat;
+  document.querySelectorAll('#toolsGrid .card').forEach(card=>{
+    if(cat === 'all' || card.dataset.cat === cat){
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+};
+</script>
+</body>
+</html>
