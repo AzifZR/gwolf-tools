@@ -16,8 +16,22 @@ def handle_get(handler, path):
             handler.end_headers()
         return True
 
+    if path == "/laporan" or path == "/laporan.html":
+        p = STATIC_DIR / "laporan.html"
+        if p.exists():
+            data = p.read_bytes()
+            handler.send_response(200)
+            handler.send_header("Content-Type", "text/html; charset=utf-8")
+            handler.send_header("Content-Length", str(len(data)))
+            handler.end_headers()
+            handler.wfile.write(data)
+        else:
+            handler.send_response(404)
+            handler.end_headers()
+        return True
+
     if path == "/api/status":
-        send_json(handler, {"status": "online", "port": PORT, "features": ["pdf_merge", "pdf_compress", "img_to_pdf", "img_compress", "img_upscale", "img_convert", "pdf_to_img", "word_to_pdf", "pdf_to_word"]})
+        send_json(handler, {"status": "online", "port": PORT, "features": ["pdf_merge", "pdf_compress", "img_to_pdf", "img_compress", "img_upscale", "img_convert", "pdf_to_img", "word_to_pdf", "pdf_to_word", "laporan_basis_data"]})
         return True
 
     return False

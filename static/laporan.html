@@ -1,0 +1,92 @@
+<!doctype html><html lang=id><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Laporan Basis Data — Gwolf</title><style>
+:root{--bg:#0D0F12;--surface:#15191F;--surface2:#1C222B;--border:#262D38;--border2:#39445A;--text:#F1F3F6;--muted:#9BA7B9;--accent:#FFC247;--accent-ink:#1A1305;--success:#34D399;--danger:#F26D6D;--r:14px;--rs:10px}
+*{box-sizing:border-box;margin:0;padding:0}body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;padding:24px;max-width:860px;margin:0 auto}
+h1{font-size:20px;margin-bottom:4px}small{color:var(--muted)}a{color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin:16px 0}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
+input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);padding:10px 12px;font-size:14px}
+textarea{min-height:90px;font-family:monospace}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mod{border:1px solid var(--border);border-radius:var(--r);padding:14px;margin:12px 0;background:var(--surface)}
+.mod h3{font-size:14px;margin-bottom:8px}
+.block{border:1px dashed var(--border2);border-radius:var(--rs);padding:10px;margin:8px 0;background:rgba(255,194,71,.04)}
+.btn{border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:var(--rs);padding:8px 12px;cursor:pointer;font-size:13px}
+.btn-ac{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn:hover{border-color:var(--border2)} .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.badge{font-size:11px;color:var(--muted)}
+#log{white-space:pre-wrap;font-size:12px;color:var(--muted);margin-top:8px}
+</style></head><body>
+<h1>📄 Laporan Basis Data</h1><p><small>Template <code>bdl05_2a_089</code> · modul fleksibel 1–12, block dinamis 1–10/modul · isi cover siapa aja, download .docx</small></p>
+<p style="margin-top:8px"><a href="/">← toolbox</a> · POST <code>/api/laporan/basis-data</code></p>
+
+<div class=card>
+<h2 style="font-size:14px">Cover</h2>
+<div class=grid2>
+<div><label>Nama<label><input id=cover_nama placeholder="Azif Zain"></div>
+<div><label>NIM<label><input id=cover_nim placeholder="253107030011"></div>
+<div><label>Kelas<label><input id=cover_kelas placeholder="2-A"></div>
+<div><label>Tahun<label><input id=cover_tahun placeholder="2026" value="2026"></div>
+</div>
+<label>Prodi<label><input id=cover_prodi value="Program Studi D3 Manajemen Informatika">
+<label>Judul<label><input id=judul value="Laporan Praktikum">
+</div>
+
+<div class=card>
+<div class=row style="justify-content:space-between;align-items:center"><h2 style="font-size:14px">Modul <span id=modCount class=badge>0</span></h2><div class=row><button class=btn onclick="addMod()">+ Modul</button><button class=btn onclick="if(mods.length>1)mods.pop(),render()">− Modul</button></div></div>
+<div id=mods></div>
+</div>
+
+<div class=row><button class="btn btn-ac" onclick="kirim()">⬇ Download .docx</button><span id=log></span></div>
+
+<script>
+let mods=[];
+function addMod(t=""){ mods.push({title:t||`Tugas ${mods.length+1}`,blocks:[]}); render() }
+function addBlock(mi,type){ mods[mi].blocks.push(type==="script"?{type:"script",text:"",caption:""}:{type:"screenshot",caption:"",file:null,fileName:""}); render() }
+function rmMod(i){ mods.splice(i,1); render() }
+function rmBlock(mi,bi){ mods[mi].blocks.splice(bi,1); render() }
+function render(){
+  document.getElementById("modCount").textContent=mods.length+" /12";
+  const root=document.getElementById("mods"); root.innerHTML="";
+  mods.forEach((m,mi)=>{
+    const d=document.createElement("div"); d.className="mod";
+    d.innerHTML=`<div class=row style="justify-content:space-between"><input placeholder="Judul modul" value="${esc(m.title)}" oninput="mods[${mi}].title=this.value" style="flex:1"><button class=btn onclick="rmMod(${mi})">hapus</button></div>
+      <div class=row><button class=btn onclick="addBlock(${mi},'script')">+ script</button><button class=btn onclick="addBlock(${mi},'screenshot')">+ screenshot</button><span class=badge>${m.blocks.length} block</span></div>
+      <div id=b-${mi}></div>`;
+    root.appendChild(d);
+    const bc=d.querySelector(`#b-${mi}`);
+    m.blocks.forEach((b,bi)=>{
+      const bd=document.createElement("div"); bd.className="block";
+      if(b.type==="script") bd.innerHTML=`<label>Script <span class=badge>SQL/code</span></label><input placeholder="Caption (opsional)" value="${esc(b.caption||"")}" oninput="mods[${mi}].blocks[${bi}].caption=this.value"><textarea placeholder="CREATE VIEW ..." oninput="mods[${mi}].blocks[${bi}].text=this.value">${esc(b.text||"")}</textarea><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
+      else bd.innerHTML=`<label>Screenshot <span class=badge>png/jpg/webp ≤10MB</span></label><input placeholder="Caption" value="${esc(b.caption||"")}" oninput="mods[${mi}].blocks[${bi}].caption=this.value"><input type=file accept="image/*" onchange="mods[${mi}].blocks[${bi}].file=this.files[0];mods[${mi}].blocks[${bi}].fileName=this.files[0]?.name||''"><div class=badge>${esc(b.fileName||"")}</div><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
+      bc.appendChild(bd);
+    });
+  });
+}
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
+addMod("Tugas 1 — View"); addBlock(0,"script"); addBlock(0,"screenshot");
+async function kirim(){
+  const log=document.getElementById("log");
+  if(mods.length<1||mods.length>12){ log.textContent="modul harus 1-12"; return }
+  for(let i=0;i<mods.length;i++) if(!mods[i].blocks.length){ log.textContent=`modul ${i+1} minimal 1 block`; return }
+  const fd=new FormData();
+  fd.append("cover_nama",document.getElementById("cover_nama").value);
+  fd.append("cover_nim",document.getElementById("cover_nim").value);
+  fd.append("cover_kelas",document.getElementById("cover_kelas").value);
+  fd.append("cover_prodi",document.getElementById("cover_prodi").value);
+  fd.append("cover_tahun",document.getElementById("cover_tahun").value);
+  fd.append("judul",document.getElementById("judul").value);
+  // build modules_json with file refs
+  const mj = mods.map(m=>({title:m.title, blocks:m.blocks.map(b=> b.type==="script"?{type:"script",text:b.text,caption:b.caption}:{type:"screenshot",caption:b.caption,file_name:b.fileName||"ss.png"})} ));
+  fd.append("modules_json", JSON.stringify(mj));
+  mods.forEach(m=>m.blocks.forEach(b=>{ if(b.type==="screenshot"&&b.file) fd.append(b.fileName||"ss.png", b.file) }));
+  log.textContent="kirim...";
+  try{
+    const r=await fetch("/api/laporan/basis-data",{method:"POST",body:fd});
+    if(!r.ok){ const j=await r.json().catch(()=>({error:r.statusText})); log.textContent="gagal: "+(j.error||r.status); return }
+    const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=r.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1]||"laporan.docx"; a.click(); URL.revokeObjectURL(url);
+    log.textContent="✓ download mulai — cek Word, F9 update TOC";
+  }catch(e){ log.textContent="error: "+e.message }
+}
+</script>
+</body></html>
