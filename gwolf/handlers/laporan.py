@@ -39,7 +39,8 @@ def handle_laporan_basis_data(handler, files, form_data):
             "kelas": form_data.get("cover_kelas", ""),
             "prodi": form_data.get("cover_prodi", ""),
             "tahun": form_data.get("cover_tahun", ""),
-            "judul": form_data.get("judul", ""),
+            "modul": form_data.get("cover_modul", ""),
+            "matkul": form_data.get("matkul", "") or "Basis Data",
         }
         try:
             data = build(cover, modules)

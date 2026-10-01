@@ -28,7 +28,10 @@ textarea{min-height:90px;font-family:monospace}
 <div><label>Tahun<label><input id=cover_tahun placeholder="2026" value="2026"></div>
 </div>
 <label>Prodi<label><input id=cover_prodi value="Program Studi D3 Manajemen Informatika">
-<label>Judul<label><input id=judul value="Laporan Praktikum">
+<div class=grid2>
+<div><label>Modul (cover) <span class=badge>misal 6 / 1-3 · kosong = auto</span><label><input id=cover_modul placeholder="6"></div>
+<div><label>Matkul<label><input id=matkul value="Basis Data"></div>
+</div>
 </div>
 
 <div class=card>
@@ -40,8 +43,8 @@ textarea{min-height:90px;font-family:monospace}
 
 <script>
 let mods=[];
-function addMod(t=""){ mods.push({title:t||`Tugas ${mods.length+1}`,blocks:[]}); render() }
-function addBlock(mi,type){ mods[mi].blocks.push(type==="script"?{type:"script",text:"",caption:""}:{type:"screenshot",caption:"",file:null,fileName:""}); render() }
+function addMod(t=""){ const n=mods.length+1; mods.push({title:t||`Modul ${String(n).padStart(2,"0")}`, modul:String(n).padStart(2,"0"), blocks:[]}); render() }
+function addBlock(mi,type){ mods[mi].blocks.push(type==="script"?{type:"script",text:""}:{type:"screenshot",file:null,fileName:""}); render() }
 function rmMod(i){ mods.splice(i,1); render() }
 function rmBlock(mi,bi){ mods[mi].blocks.splice(bi,1); render() }
 function render(){
@@ -49,21 +52,21 @@ function render(){
   const root=document.getElementById("mods"); root.innerHTML="";
   mods.forEach((m,mi)=>{
     const d=document.createElement("div"); d.className="mod";
-    d.innerHTML=`<div class=row style="justify-content:space-between"><input placeholder="Judul modul" value="${esc(m.title)}" oninput="mods[${mi}].title=this.value" style="flex:1"><button class=btn onclick="rmMod(${mi})">hapus</button></div>
-      <div class=row><button class=btn onclick="addBlock(${mi},'script')">+ script</button><button class=btn onclick="addBlock(${mi},'screenshot')">+ screenshot</button><span class=badge>${m.blocks.length} block</span></div>
+    d.innerHTML=`<div class=row style="justify-content:space-between"><input placeholder="Label modul (misal 06)" value="${esc(m.modul||"")}" oninput="mods[${mi}].modul=this.value" style="max-width:130px"><input placeholder="Judul modul" value="${esc(m.title)}" oninput="mods[${mi}].title=this.value" style="flex:1"><button class=btn onclick="rmMod(${mi})">hapus</button></div>
+      <div class=row><button class=btn onclick="addBlock(${mi},'script')">+ script</button><button class=btn onclick="addBlock(${mi},'screenshot')">+ screenshot</button><span class=badge>${m.blocks.length} block · caption auto</span></div>
       <div id=b-${mi}></div>`;
     root.appendChild(d);
     const bc=d.querySelector(`#b-${mi}`);
     m.blocks.forEach((b,bi)=>{
       const bd=document.createElement("div"); bd.className="block";
-      if(b.type==="script") bd.innerHTML=`<label>Script <span class=badge>SQL/code</span></label><input placeholder="Caption (opsional)" value="${esc(b.caption||"")}" oninput="mods[${mi}].blocks[${bi}].caption=this.value"><textarea placeholder="CREATE VIEW ..." oninput="mods[${mi}].blocks[${bi}].text=this.value">${esc(b.text||"")}</textarea><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
-      else bd.innerHTML=`<label>Screenshot <span class=badge>png/jpg/webp ≤10MB</span></label><input placeholder="Caption" value="${esc(b.caption||"")}" oninput="mods[${mi}].blocks[${bi}].caption=this.value"><input type=file accept="image/*" onchange="mods[${mi}].blocks[${bi}].file=this.files[0];mods[${mi}].blocks[${bi}].fileName=this.files[0]?.name||''"><div class=badge>${esc(b.fileName||"")}</div><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
+      if(b.type==="script") bd.innerHTML=`<label>Script <span class=badge>caption otomatis: Script Modul ${esc(m.modul||String(mi+1).padStart(2,"0"))}</span></label><textarea placeholder="CREATE VIEW ..." oninput="mods[${mi}].blocks[${bi}].text=this.value">${esc(b.text||"")}</textarea><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
+      else bd.innerHTML=`<label>Screenshot <span class=badge>png/jpg/webp ≤10MB · caption otomatis</span></label><input type=file accept="image/*" onchange="mods[${mi}].blocks[${bi}].file=this.files[0];mods[${mi}].blocks[${bi}].fileName=this.files[0]?.name||''"><div class=badge>${esc(b.fileName||"")}</div><button class=btn onclick="rmBlock(${mi},${bi})">hapus block</button>`;
       bc.appendChild(bd);
     });
   });
 }
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
-addMod("Tugas 1 — View"); addBlock(0,"script"); addBlock(0,"screenshot");
+addMod("View Transaksi"); addBlock(0,"script"); addBlock(0,"screenshot");
 async function kirim(){
   const log=document.getElementById("log");
   if(mods.length<1||mods.length>12){ log.textContent="modul harus 1-12"; return }
@@ -74,9 +77,10 @@ async function kirim(){
   fd.append("cover_kelas",document.getElementById("cover_kelas").value);
   fd.append("cover_prodi",document.getElementById("cover_prodi").value);
   fd.append("cover_tahun",document.getElementById("cover_tahun").value);
-  fd.append("judul",document.getElementById("judul").value);
-  // build modules_json with file refs
-  const mj = mods.map(m=>({title:m.title, blocks:m.blocks.map(b=> b.type==="script"?{type:"script",text:b.text,caption:b.caption}:{type:"screenshot",caption:b.caption,file_name:b.fileName||"ss.png"})} ));
+  fd.append("cover_modul",document.getElementById("cover_modul").value);
+  fd.append("matkul",document.getElementById("matkul").value);
+  // caption OTOMATIS di backend dari label — kirim title + modul, tanpa caption manual
+  const mj = mods.map(m=>({title:m.title, modul:m.modul, blocks:m.blocks.map(b=> b.type==="script"?{type:"script",text:b.text}:{type:"screenshot",file_name:b.fileName||"ss.png"})} ));
   fd.append("modules_json", JSON.stringify(mj));
   mods.forEach(m=>m.blocks.forEach(b=>{ if(b.type==="screenshot"&&b.file) fd.append(b.fileName||"ss.png", b.file) }));
   log.textContent="kirim...";
