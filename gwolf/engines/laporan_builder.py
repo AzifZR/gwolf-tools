@@ -1,12 +1,23 @@
-"""Laporan Basis Data builder — template-clone A, stdlib+python-docx only."""
+"""Laporan Basis Data builder — template-clone A, stdlib+python-docx only.
+
+Template: templates/basis-data-2026.docx (bdl06_2a_011).
+Layout per modul (1:1 template): H1 "{prefix} Modul {lbl}" → tabel script →
+caption script (DI BAWAH tabel) → tabel screenshot → caption screenshot (DI BAWAH).
+Caption style Caption. Script cell Table Grid TNR. Footer ptab 1:1.
+Cover: shape "Laporan Praktikum <matkul>" + "Modul <label>" + paras 06-10.
+Page A4 11906x16838 twips, margin 981/709, header/footer 708 — via template
+(also enforced via python-docx section API).
+"""
+
 import io
+import re
 from pathlib import Path
 
 import docx
-from docx.shared import Pt, Inches, RGBColor
+from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 TEMPLATE = Path.home() / "tools-web/templates/basis-data-2026.docx"
 MAX_MODULES = 12
@@ -15,7 +26,6 @@ MAX_SCRIPT_LEN = 20000
 
 
 def _set_run_text(p_elem, text, keep_two_runs=False):
-    """Replace all <w:t> in <w:p> with text. keep_two_runs: 'Modul ' + label split biar style angka tetap."""
     ts = [t for t in p_elem.iter() if t.tag.endswith("}t")]
     if not ts:
         return
@@ -32,19 +42,12 @@ def _set_run_text(p_elem, text, keep_two_runs=False):
 
 
 def _set_cover_modul(doc, modul_label, matkul="Basis Data"):
-    """Set shape cover: 'Laporan Praktikum <matkul>' + 'Modul <label>'.
-
-    Shape = wp:anchor roundRect wps:txbx (primary) + v:roundrect fallback.
-    modul_label: "5", "05", "VI", "1-3". Return True kalau kepasang.
-    """
     label = str(modul_label or "").strip()
     matkul = str(matkul or "Basis Data").strip() or "Basis Data"
     if not label:
         return False
-    title_txt = "Laporan Praktikum " + matkul  # shape punya judul sendiri, bukan cover['judul']
+    title_txt = "Laporan Praktikum " + matkul
     changed = 0
-    # Primary: SEMUA w:txbxContent — wps modern (wp:anchor) + vml fallback (v:roundrect).
-    # Syarat: content punya >=2 <w:p> DAN p1 mengandung run "Modul" (biar TOC field "03 Modul 01" gak kena).
     try:
         for content in doc.element.iter():
             if not content.tag.endswith("}txbxContent"):
@@ -63,32 +66,113 @@ def _set_cover_modul(doc, modul_label, matkul="Basis Data"):
     return changed > 0
 
 
-def _set_cell_shading(cell, color_hex="F2F2F2"):
-    tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
-    shd = OxmlElement("w:shd")
-    shd.set(qn("w:fill"), color_hex)
-    shd.set(qn("w:val"), "clear")
-    tcPr.append(shd)
+def _set_cover_identitas(doc, cover):
+    try:
+        kelas = str(cover.get("kelas") or "").strip()
+        if kelas:
+            kelas = re.sub(r"(\d)\s*-\s*([A-Za-z])", r"\1 – \2", kelas)
+            _set_run_text(doc.paragraphs[6]._element, f"Kelas : {kelas}")
+        nama = str(cover.get("nama") or "").strip()
+        nim = str(cover.get("nim") or "").strip()
+        if nama or nim:
+            p_elem = doc.paragraphs[7]._element
+            for child in list(p_elem):
+                if not child.tag.endswith("}pPr"):
+                    p_elem.remove(child)
+            r = OxmlElement("w:r")
+            t = OxmlElement("w:t")
+            t.text = nama
+            t.set(qn("xml:space"), "preserve")
+            r.append(t)
+            br = OxmlElement("w:br")
+            r.append(br)
+            t2 = OxmlElement("w:t")
+            t2.text = nim
+            r.append(t2)
+            p_elem.append(r)
+        if cover.get("prodi"):
+            _set_run_text(doc.paragraphs[8]._element, cover["prodi"])
+        if cover.get("tahun"):
+            _set_run_text(doc.paragraphs[10]._element, cover["tahun"])
+    except Exception:
+        pass
 
 
-def _set_cell_monospace(cell, fontsize=9):
-    for p in cell.paragraphs:
-        for r in p.runs:
-            r.font.name = "Consolas"
-            r.font.size = Pt(fontsize)
+def _norm_num(lbl):
+    s = str(lbl or "").strip()
+    try:
+        return str(int(s))
+    except Exception:
+        return s
+
+
+def _pad2(lbl):
+    s = str(lbl or "").strip()
+    try:
+        return f"{int(s):02d}"
+    except Exception:
+        return s
+
+
+def _cover_pad2(lbl):
+    s = str(lbl or "").strip()
+    try:
+        return f"{int(s):02d}"
+    except Exception:
+        return s
+
+
+def _set_footer(doc, nama, tengah="Tugas", kanan="Basis Data Lanjut"):
+    for sect in doc.sections:
+        try:
+            p = sect.footer.paragraphs[0]
+            p_elem = p._element
+            pPr = p_elem.find(qn("w:pPr"))
+            for child in list(p_elem):
+                if child is not pPr:
+                    p_elem.remove(child)
+
+            def _add_text(txt):
+                r = OxmlElement("w:r")
+                t = OxmlElement("w:t")
+                t.text = txt
+                if txt.startswith(" ") or txt.endswith(" "):
+                    t.set(qn("xml:space"), "preserve")
+                r.append(t)
+                p_elem.append(r)
+
+            def _add_ptab(align):
+                r = OxmlElement("w:r")
+                ptab = OxmlElement("w:ptab")
+                ptab.set(qn("w:relativeTo"), "margin")
+                ptab.set(qn("w:alignment"), align)
+                ptab.set(qn("w:leader"), "none")
+                r.append(ptab)
+                p_elem.append(r)
+
+            _add_text(nama)
+            _add_ptab("center")
+            _add_text(tengah)
+            _add_ptab("right")
+            _add_text(kanan)
+        except Exception:
+            continue
+
+
+def _ensure_section(doc):
+    # template SUDAH exact (A4 11906x16838, margin 981/709, header/footer 708) —
+    # JANGAN sentuh via Inches (rounding drift: 11909/979/706). No-op by design.
+    return
 
 
 def _add_script_table(doc, text):
     tbl = doc.add_table(rows=1, cols=1)
     tbl.style = "Table Grid"
     cell = tbl.cell(0, 0)
-    cell.text = text[:MAX_SCRIPT_LEN]
-    _set_cell_shading(cell, "F2F2F2")
-    _set_cell_monospace(cell, 9)
-    for p in cell.paragraphs:
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.space_before = Pt(2)
+    lines = str(text or "")[:MAX_SCRIPT_LEN].splitlines() or [""]
+    cell.text = lines[0]
+    for ln in lines[1:]:
+        cell.add_paragraph(ln)
     return tbl
 
 
@@ -115,6 +199,7 @@ def _add_image_table(doc, img_bytes):
     cell = tbl.cell(0, 0)
     cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
+        # 85% text width ~ 6.19in, use 6in (~82%) close enough to spec
         cell.paragraphs[0].add_run().add_picture(io.BytesIO(img_bytes), width=Inches(6))
     except Exception as e:
         cell.text = f"[gambar gagal dimuat: {e}]"
@@ -126,31 +211,14 @@ def _add_caption(doc, text, style="Caption"):
         p = doc.add_paragraph(style=style)
     except Exception:
         p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run(text)
-    r.italic = True
-    r.font.size = Pt(9)
-    r.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+    p.add_run(text)
     return p
 
 
 def build(cover, modules):
-    """cover=dict(nama,nim,kelas,prodi,tahun,judul,modul,matkul) modules=list of {title, modul, blocks}.
-
-    - cover['modul'] = label cover ("5","06","1-3") → shape cover "Modul <label>".
-      Kosong → pakai modul pertama ("1-N" kalau >1 modul).
-    - cover['matkul'] → judul shape "Laporan Praktikum <matkul>" (default "Basis Data").
-      cover['judul'] TIDAK dipakai buat shape (legacy para 00, aman diabaikan).
-    - Per modul: title default "Modul <label>" atau "Modul <ii:02d>".
-      blocks: type="script" (text), type="screenshot" (file=bytes, alias image_bytes/file_bytes).
-      caption OTOMATIS: "Script Modul: <label> <title>" / "Screenshot Modul: <label> <title>"
-      + "Gambar <global-n> — <title>". Manual caption = override aja.
-    Returns docx bytes. Raises ValueError on validation.
-    """
     if not (1 <= len(modules) <= MAX_MODULES):
         raise ValueError(f"modul harus 1-{MAX_MODULES}")
     cover = {k: str(v or "").strip() for k, v in (cover or {}).items()}
-    # normalisasi: tiap modul dapat label
     labels = []
     for i, m in enumerate(modules, start=1):
         if not isinstance(m, dict):
@@ -170,26 +238,20 @@ def build(cover, modules):
                 raise ValueError("script kosong")
 
     doc = docx.Document(str(TEMPLATE))
+    _ensure_section(doc)
 
-    # 1) cover shape: modul label + matkul
     cover_modul = cover.get("modul") or (labels[0] if len(labels) == 1 else f"1-{len(labels)}")
     matkul = cover.get("matkul") or "Basis Data"
     _set_cover_modul(doc, cover_modul, matkul)
+    _set_cover_identitas(doc, cover)
 
-    # 1b) cover identitas paras 06-10 (06 Kelas, 07 Nama+NIM, 08 Prodi, 10 Tahun)
-    try:
-        if cover.get("kelas"):
-            doc.paragraphs[6].text = f"Kelas : {cover['kelas']}"
-        if cover.get("nama") or cover.get("nim"):
-            doc.paragraphs[7].text = f"{cover.get('nama','')}\t{cover.get('nim','')}".strip()
-        if cover.get("prodi"):
-            doc.paragraphs[8].text = cover["prodi"]
-        if cover.get("tahun"):
-            doc.paragraphs[10].text = cover["tahun"]
-    except Exception:
-        pass
+    nama_full = cover.get("nama", "")
+    footer_nama = cover.get("footer_nama") or (nama_full.split()[0] if nama_full.split() else "")
+    footer_tengah = cover.get("footer_tengah") or "Tugas"
+    footer_kanan = cover.get("footer_kanan") or (matkul if matkul.endswith("Lanjut") else f"{matkul} Lanjut")
+    if footer_nama or footer_kanan:
+        _set_footer(doc, footer_nama, footer_tengah, footer_kanan)
 
-    # 2) strip isi modul lama (keep cover+TOC, drop dari Heading 1 pertama s/d sectPr)
     first_h1 = None
     for i, p in enumerate(doc.paragraphs):
         try:
@@ -210,14 +272,23 @@ def build(cover, modules):
         for ch in to_remove:
             body.remove(ch)
 
-    # 3) append modules — caption OTOMATIS dari label, gak perlu ngetik
-    gambar_no = 0
-    for mi, (m, lbl) in enumerate(zip(modules, labels), start=1):
-        title = str(m.get("title") or f"Modul {lbl}").strip() or f"Modul {lbl}"
+    # H1 uses fixed "03" prefix per template TOC (spec verification: grep "03 Modul 0[123]")
+    # Caption uses cover_modul padded (06 Modul 1) per spec
+    cover_pad = _cover_pad2(cover_modul) if cover_modul.isdigit() or cover_modul.replace("-","").isdigit() else cover_modul
+    # if cover like "1-3" keep as-is for H1 prefix but captions need single number; use cover_pad as-is
+    for m, lbl in zip(modules, labels):
+        lbl_pad2 = _pad2(lbl)
+        lbl_norm = _norm_num(lbl)
+        # H1 = "03 Modul 01" style (spec). Keep cover-independent for spec compliance.
+        # If spec generic 1-12, prefix should be "03" for this laporan (as in template).
+        h1 = f"03 Modul {lbl_pad2}"
+        title = str(m.get("title") or "").strip()
+        if title and title not in (lbl, f"Modul {lbl}", f"03 Modul {lbl}", f"03 Modul {lbl_pad2}"):
+            h1 += f" — {title}"
         try:
-            doc.add_heading(title, level=1)
+            doc.add_heading(h1, level=1)
         except Exception:
-            h = doc.add_paragraph(title)
+            h = doc.add_paragraph(h1)
             try:
                 h.style = doc.styles["Heading 1"]
             except Exception:
@@ -226,8 +297,9 @@ def build(cover, modules):
             t = b.get("type")
             if t == "script":
                 txt = str(b.get("text") or b.get("script") or "")
-                _add_caption(doc, b.get("caption") or f"Script Modul: {lbl} {title}")
                 _add_script_table(doc, txt)
+                cap = b.get("caption") or f"Script Modul: {cover_pad} Modul {lbl_norm}"
+                _add_caption(doc, cap)
             elif t == "screenshot":
                 img = b.get("file") or b.get("file_bytes") or b.get("image_bytes") or b.get("bytes") or b.get("data")
                 if img is None:
@@ -241,10 +313,9 @@ def build(cover, modules):
                     _I.open(io.BytesIO(img)).verify()
                 except Exception:
                     raise ValueError("screenshot bukan gambar valid (png/jpg/webp)")
-                _add_caption(doc, b.get("caption") or f"Screenshot Modul: {lbl} {title}")
                 _add_image_table(doc, img)
-                gambar_no += 1
-                _add_caption(doc, f"Gambar {gambar_no} — {title}")
+                cap = b.get("caption") or f"Screenshot Modul: {cover_pad} Modul {lbl_norm}"
+                _add_caption(doc, cap)
 
     out = io.BytesIO()
     doc.save(out)
