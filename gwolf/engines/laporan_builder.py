@@ -66,6 +66,38 @@ def _set_cover_modul(doc, modul_label, matkul="Basis Data"):
     return changed > 0
 
 
+def _clone_rPr(rPr):
+    """Deep-copy rPr element (fonts/sz/b/lang/spacing) — 1:1 template."""
+    import copy
+    try:
+        return copy.deepcopy(rPr) if rPr is not None else None
+    except Exception:
+        return None
+
+
+def _fix_tbl_layout(tbl):
+    """Set tblW 10064 + tblInd 279 dxa persis template (bug visual #2)."""
+    try:
+        tblPr = tbl._tbl.find(qn("w:tblPr"))
+        if tblPr is None:
+            tblPr = OxmlElement("w:tblPr")
+            tbl._tbl.insert(0, tblPr)
+        tblW = tblPr.find(qn("w:tblW"))
+        if tblW is None:
+            tblW = OxmlElement("w:tblW")
+            tblPr.append(tblW)
+        tblW.set(qn("w:w"), "10064")
+        tblW.set(qn("w:type"), "dxa")
+        tblInd = tblPr.find(qn("w:tblInd"))
+        if tblInd is None:
+            tblInd = OxmlElement("w:tblInd")
+            tblPr.append(tblInd)
+        tblInd.set(qn("w:w"), "279")
+        tblInd.set(qn("w:type"), "dxa")
+    except Exception:
+        pass
+
+
 def _set_cover_identitas(doc, cover):
     try:
         kelas = str(cover.get("kelas") or "").strip()
@@ -76,25 +108,43 @@ def _set_cover_identitas(doc, cover):
         nim = str(cover.get("nim") or "").strip()
         if nama or nim:
             p_elem = doc.paragraphs[7]._element
+            # CLONE rPr template dulu (nama run + NIM runs) sebelum clear —
+            # rebuild manual tanpa clone = fallback Calibri (bug visual #1).
+            # Template p7: run0 nama (b, sz32, TNR), run1 tab, run2 NIM head
+            # (b spacing-2), run3 NIM tail (b spacing-2).
+            W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            rprs = []
+            for r in list(p_elem):
+                if r.tag.endswith("}r"):
+                    rp = r.find(W + "rPr")
+                    rprs.append(_clone_rPr(rp))
+            nama_rPr = rprs[0] if len(rprs) > 0 else None
+            nim_rPr = None
+            for j in (2, 3, 1, 0):
+                if j < len(rprs) and rprs[j] is not None:
+                    nim_rPr = rprs[j]
+                    break
             for child in list(p_elem):
                 if not child.tag.endswith("}pPr"):
                     p_elem.remove(child)
-            # spec: cover SEMUA center + bold — tambah w:b di rPr biar 1:1 template
             r = OxmlElement("w:r")
-            rPr = OxmlElement("w:rPr")
-            b = OxmlElement("w:b")
-            rPr.append(b)
-            r.append(rPr)
+            if nama_rPr is not None:
+                r.append(nama_rPr)
             t = OxmlElement("w:t")
             t.text = nama
             t.set(qn("xml:space"), "preserve")
             r.append(t)
             br = OxmlElement("w:br")
             r.append(br)
-            t2 = OxmlElement("w:t")
-            t2.text = nim
-            r.append(t2)
             p_elem.append(r)
+            # NIM run sendiri dengan rPr clone NIM (spacing -2 + TNR sz32)
+            r2 = OxmlElement("w:r")
+            if nim_rPr is not None:
+                r2.append(nim_rPr)
+            t3 = OxmlElement("w:t")
+            t3.text = nim
+            r2.append(t3)
+            p_elem.append(r2)
         if cover.get("prodi"):
             _set_run_text(doc.paragraphs[8]._element, cover["prodi"])
         if cover.get("tahun"):
@@ -241,6 +291,7 @@ def _ensure_section(doc):
 def _add_script_table(doc, text):
     tbl = doc.add_table(rows=1, cols=1)
     tbl.style = "Table Grid"
+    _fix_tbl_layout(tbl)
     cell = tbl.cell(0, 0)
     lines = str(text or "")[:MAX_SCRIPT_LEN].splitlines() or [""]
     cell.text = lines[0]
@@ -269,6 +320,7 @@ def _add_image_table(doc, img_bytes):
         pass
     tbl = doc.add_table(rows=1, cols=1)
     tbl.style = "Table Grid"
+    _fix_tbl_layout(tbl)
     cell = tbl.cell(0, 0)
     cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
@@ -302,19 +354,23 @@ def _update_toc(doc, labels):
             toc_idx.append(i)
     if not toc_idx:
         return
-    # update existing TOC entries
-    for k, i in enumerate(toc_idx):
+    # update existing TOC entries; spare di-REMOVE reverse (index shift aman)
+    for k in range(len(toc_idx) - 1, -1, -1):
         if k < len(labels):
-            p = doc.paragraphs[i]
-            p.clear()
-            try: p.style = doc.paragraphs[toc_idx[0]].style
-            except Exception: pass
-            p.add_run(f"03 Modul {_pad2(labels[k])}\t{3 + k}")
-        else:
-            p = doc.paragraphs[i]
-            p.clear()
-            try: p.style = doc.paragraphs[toc_idx[0]].style
-            except Exception: pass
+            continue
+        try:
+            el = doc.paragraphs[toc_idx[k]]._element
+            el.getparent().remove(el)
+        except Exception:
+            pass
+    for k, i in enumerate(toc_idx):
+        if k >= len(labels):
+            continue
+        p = doc.paragraphs[i]
+        p.clear()
+        try: p.style = doc.paragraphs[toc_idx[0]].style
+        except Exception: pass
+        p.add_run(f"03 Modul {_pad2(labels[k])}\t{3 + k}")
     # tambah entri baru jika labels > toc slots
     if len(labels) <= len(toc_idx):
         return
