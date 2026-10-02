@@ -127,6 +127,17 @@ def _set_cover_identitas(doc, cover):
             for child in list(p_elem):
                 if not child.tag.endswith("}pPr"):
                     p_elem.remove(child)
+            # 2-baris + after 3360 template (desain 1-baris) = overflow ~368 twip
+            # → blank di Libre strict (Word toleran). Kompensasi: after 3360→3000
+            # biar total tinggi cover ≈ template. (template p07 after=3360, p06 before=3000)
+            try:
+                pPr = p_elem.find(W + "pPr")
+                if pPr is not None:
+                    sp = pPr.find(W + "spacing")
+                    if sp is not None:
+                        sp.set(qn("w:after"), "3000")
+            except Exception:
+                pass
             r = OxmlElement("w:r")
             if nama_rPr is not None:
                 r.append(nama_rPr)
