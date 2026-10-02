@@ -72,7 +72,7 @@ function render(){
   });
 }
 function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") }
-addMod("View Transaksi"); addBlock(0,"script"); addBlock(0,"screenshot");
+addMod(); addBlock(0,"script"); addBlock(0,"screenshot");
 async function kirim(){
   const log=document.getElementById("log");
   if(mods.length<1||mods.length>20){ log.textContent="modul harus 1-20"; return }
