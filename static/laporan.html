@@ -16,7 +16,7 @@ textarea{min-height:90px;font-family:monospace}
 .badge{font-size:11px;color:var(--muted)}
 #log{white-space:pre-wrap;font-size:12px;color:var(--muted);margin-top:8px}
 </style></head><body>
-<h1>📄 Laporan Basis Data</h1><p><small>Template <code>bdl05_2a_089</code> · modul fleksibel 1–12, block dinamis 1–10/modul · isi cover siapa aja, download .docx</small></p>
+<h1>📄 Laporan Basis Data</h1><p><small>Template <code>bdl05_2a_089</code> · modul fleksibel 1–20, block dinamis 1–10/modul · isi cover siapa aja, download .docx</small></p>
 <p style="margin-top:8px"><a href="/">← toolbox</a> · POST <code>/api/laporan/basis-data</code></p>
 
 <div class=card>
@@ -31,6 +31,12 @@ textarea{min-height:90px;font-family:monospace}
 <div class=grid2>
 <div><label>Modul (cover) <span class=badge>misal 6 / 1-3 · kosong = auto</span><label><input id=cover_modul placeholder="6"></div>
 <div><label>Matkul<label><input id=matkul value="Basis Data"></div>
+</div>
+<label>Footer (manual) <span class=badge>kiri = nama · kosong = nama depan cover · kanan kosong = "{matkul} Lanjut"</span></label>
+<div class=grid2 style="grid-template-columns:1fr 1fr 1fr">
+<div><input id=footer_nama placeholder="Azif"></div>
+<div><input id=footer_tengah value="Tugas"></div>
+<div><input id=footer_kanan placeholder="Basis Data Lanjut"></div>
 </div>
 </div>
 
@@ -48,7 +54,7 @@ function addBlock(mi,type){ mods[mi].blocks.push(type==="script"?{type:"script",
 function rmMod(i){ mods.splice(i,1); render() }
 function rmBlock(mi,bi){ mods[mi].blocks.splice(bi,1); render() }
 function render(){
-  document.getElementById("modCount").textContent=mods.length+" /12";
+  document.getElementById("modCount").textContent=mods.length+" /20";
   const root=document.getElementById("mods"); root.innerHTML="";
   mods.forEach((m,mi)=>{
     const d=document.createElement("div"); d.className="mod";
@@ -69,7 +75,7 @@ function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").repla
 addMod("View Transaksi"); addBlock(0,"script"); addBlock(0,"screenshot");
 async function kirim(){
   const log=document.getElementById("log");
-  if(mods.length<1||mods.length>12){ log.textContent="modul harus 1-12"; return }
+  if(mods.length<1||mods.length>20){ log.textContent="modul harus 1-20"; return }
   for(let i=0;i<mods.length;i++) if(!mods[i].blocks.length){ log.textContent=`modul ${i+1} minimal 1 block`; return }
   const fd=new FormData();
   fd.append("cover_nama",document.getElementById("cover_nama").value);
@@ -79,6 +85,9 @@ async function kirim(){
   fd.append("cover_tahun",document.getElementById("cover_tahun").value);
   fd.append("cover_modul",document.getElementById("cover_modul").value);
   fd.append("matkul",document.getElementById("matkul").value);
+  fd.append("footer_nama",document.getElementById("footer_nama").value);
+  fd.append("footer_tengah",document.getElementById("footer_tengah").value);
+  fd.append("footer_kanan",document.getElementById("footer_kanan").value);
   // caption OTOMATIS di backend dari label — kirim title + modul, tanpa caption manual
   const mj = mods.map(m=>({title:m.title, modul:m.modul, blocks:m.blocks.map(b=> b.type==="script"?{type:"script",text:b.text}:{type:"screenshot",file_name:b.fileName||"ss.png"})} ));
   fd.append("modules_json", JSON.stringify(mj));

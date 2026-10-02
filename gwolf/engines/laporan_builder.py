@@ -20,7 +20,7 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 TEMPLATE = Path.home() / "tools-web/templates/basis-data-2026.docx"
-MAX_MODULES = 12
+MAX_MODULES = 20
 MAX_BLOCKS_PER = 10
 MAX_SCRIPT_LEN = 20000
 
@@ -288,6 +288,57 @@ def _add_caption(doc, text, style="Caption"):
     return p
 
 
+def _update_toc(doc, labels):
+    """TOC dinamis N modul: paras style toc* jadi '03 Modul {lbl}\\t{page}'.
+    Template bdl06 cuma contoh 3 entri — bukan batas. Page sequential dari 3
+    (tebakan; Word F9 / field update yang benerin). Sisa entri dikosongkan."""
+    toc_idx = []
+    for i, p in enumerate(doc.paragraphs):
+        try:
+            st = p.style.name or ""
+        except Exception:
+            st = ""
+        if st.lower().startswith("toc"):
+            toc_idx.append(i)
+    if not toc_idx:
+        return
+    # update existing TOC entries
+    for k, i in enumerate(toc_idx):
+        if k < len(labels):
+            p = doc.paragraphs[i]
+            p.clear()
+            try: p.style = doc.paragraphs[toc_idx[0]].style
+            except Exception: pass
+            p.add_run(f"03 Modul {_pad2(labels[k])}\t{3 + k}")
+        else:
+            p = doc.paragraphs[i]
+            p.clear()
+            try: p.style = doc.paragraphs[toc_idx[0]].style
+            except Exception: pass
+    # tambah entri baru jika labels > toc slots
+    if len(labels) <= len(toc_idx):
+        return
+    base_style = None
+    try:
+        base_style = doc.paragraphs[toc_idx[0]].style
+    except Exception:
+        pass
+    last_elem = doc.paragraphs[toc_idx[-1]]._element
+    for k in range(len(toc_idx), len(labels)):
+        try:
+            new_p = doc.add_paragraph(style=base_style) if base_style else doc.add_paragraph()
+        except Exception:
+            new_p = doc.add_paragraph()
+        new_p.clear()
+        try:
+            if base_style: new_p.style = base_style
+        except Exception:
+            pass
+        new_p.add_run(f"03 Modul {_pad2(labels[k])}\t{3 + k}")
+        last_elem.addnext(new_p._element)
+        last_elem = new_p._element
+
+
 def build(cover, modules):
     if not (1 <= len(modules) <= MAX_MODULES):
         raise ValueError(f"modul harus 1-{MAX_MODULES}")
@@ -344,6 +395,8 @@ def build(cover, modules):
                 to_remove.append(ch)
         for ch in to_remove:
             body.remove(ch)
+
+    _update_toc(doc, labels)
 
     # H1 uses fixed "03" prefix per template TOC (spec verification: grep "03 Modul 0[123]")
     # Caption uses cover_modul padded (06 Modul 1) per spec
