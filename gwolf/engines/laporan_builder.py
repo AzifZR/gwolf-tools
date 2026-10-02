@@ -79,7 +79,12 @@ def _set_cover_identitas(doc, cover):
             for child in list(p_elem):
                 if not child.tag.endswith("}pPr"):
                     p_elem.remove(child)
+            # spec: cover SEMUA center + bold — tambah w:b di rPr biar 1:1 template
             r = OxmlElement("w:r")
+            rPr = OxmlElement("w:rPr")
+            b = OxmlElement("w:b")
+            rPr.append(b)
+            r.append(rPr)
             t = OxmlElement("w:t")
             t.text = nama
             t.set(qn("xml:space"), "preserve")
@@ -157,6 +162,74 @@ def _set_footer(doc, nama, tengah="Tugas", kanan="Basis Data Lanjut"):
             _add_text(kanan)
         except Exception:
             continue
+
+
+def _prune_orphan_images(doc):
+    """Hapus relasi image yatim (template image1-3) — best effort, silent."""
+    import re
+    try:
+        EMBED = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed"
+        used = set()
+        for el in doc.element.iter():
+            rid = el.get(EMBED)
+            if rid:
+                used.add(rid)
+        rels = doc.part.rels
+        for rid in [r for r in list(getattr(rels, "_rels", {}).keys())]:
+            try:
+                rel = rels[rid]
+                if "image" in getattr(rel, "reltype", "") and rid not in used:
+                    del rels._rels[rid]
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+
+def _strip_orphan_media(data):
+    """Zip-level prune: buang word/media/* yang tak ter-ref di document.xml
+    + rels + Content_Types override-nya. Output cuma bawa media terpakai."""
+    import re
+    import zipfile
+    zin = zipfile.ZipFile(io.BytesIO(data))
+    names = zin.namelist()
+    doc_xml = zin.read("word/document.xml").decode("utf-8", "replace")
+    rels_xml = zin.read("word/_rels/document.xml.rels").decode("utf-8", "replace")
+    used_targets = set()
+    for m in re.finditer(r'r:embed="(rId\d+)"', doc_xml):
+        mm = re.search(r'Id="%s"[^>]*Target="([^"]+)"' % re.escape(m.group(1)), rels_xml)
+        if mm:
+            used_targets.add(mm.group(1))
+    drop_media = [n for n in names
+                  if n.startswith("word/media/") and ("media/" + n.split("word/media/")[1]) not in used_targets
+                  and n.split("word/", 1)[1] not in used_targets]
+    if not drop_media:
+        return data
+    drop_set = set(drop_media)
+    # rels entries pointing to dropped media
+    drop_rel_ids = set()
+    for m in re.finditer(r'<Relationship\s+Id="([^"]+)"[^>]*Target="([^"]+)"', rels_xml):
+        rid, tgt = m.group(1), m.group(2)
+        if tgt.startswith("media/") and ("word/" + tgt) in drop_set:
+            drop_rel_ids.add(rid)
+    new_rels = re.sub(
+        r'<Relationship\s+Id="(%s)"[^>]*/>' % "|".join(sorted(drop_rel_ids)),
+        "", rels_xml) if drop_rel_ids else rels_xml
+    try:
+        ct = zin.read("[Content_Types].xml").decode("utf-8", "replace")
+        for n in drop_media:
+            ct = re.sub(r'<Override\s+PartName="/%s"[^>]*/>' % re.escape(n), "", ct)
+    except Exception:
+        ct = None
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for n in names:
+            if n in drop_set:
+                continue
+            blob = new_rels.encode() if n == "word/_rels/document.xml.rels" else (
+                ct.encode() if (ct is not None and n == "[Content_Types].xml") else zin.read(n))
+            zout.writestr(n, blob)
+    return out.getvalue()
 
 
 def _ensure_section(doc):
@@ -320,6 +393,7 @@ def build(cover, modules):
     out = io.BytesIO()
     doc.save(out)
     data = out.getvalue()
+    data = _strip_orphan_media(data)
     if len(data) > 15 * 1024 * 1024:
         raise ValueError("output docx >15MB")
     return data
