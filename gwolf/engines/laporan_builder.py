@@ -301,14 +301,21 @@ def _add_script_table(doc, text):
 
 
 def _add_image_table(doc, img_bytes):
+    # Target extents ≈ template (±5%): max cx 4810796 EMU = 5.26in,
+    # tinggi proporsional ~2.9M EMU. Jangan paksa 6in (5486400 EMU,
+    # 15-50% lebih tinggi dari template → Libre strict pagination blank).
+    EMU = 914400
+    MAX_CX = 4810796
     try:
         from PIL import Image
         im = Image.open(io.BytesIO(img_bytes))
         im.verify()
         im = Image.open(io.BytesIO(img_bytes))
-        max_w = 900
-        if im.width > max_w:
-            ratio = max_w / im.width
+        # resize PIL: fit box 505x308px (= template max 4810796x2934109 EMU @96dpi)
+        # jangan paksa 6in — Libre strict pagination blank kalau gambar 15-50% lebih tinggi
+        max_w, max_h = 505, 308
+        if im.width > max_w or im.height > max_h:
+            ratio = min(max_w / im.width, max_h / im.height)
             im = im.resize((max_w, int(im.height * ratio)), Image.Resampling.LANCZOS)
             buf = io.BytesIO()
             fmt = "PNG" if im.mode in ("RGBA", "P") else "JPEG"
@@ -316,16 +323,17 @@ def _add_image_table(doc, img_bytes):
                 im = im.convert("RGB")
             im.save(buf, format=fmt)
             img_bytes = buf.getvalue()
+        # clamp docx width: px/96 in, max 5.26in biar cx <= MAX_CX
+        w_in = min(im.width / 96.0, MAX_CX / EMU)
     except Exception:
-        pass
+        w_in = 5.26
     tbl = doc.add_table(rows=1, cols=1)
     tbl.style = "Table Grid"
     _fix_tbl_layout(tbl)
     cell = tbl.cell(0, 0)
     cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     try:
-        # 85% text width ~ 6.19in, use 6in (~82%) close enough to spec
-        cell.paragraphs[0].add_run().add_picture(io.BytesIO(img_bytes), width=Inches(6))
+        cell.paragraphs[0].add_run().add_picture(io.BytesIO(img_bytes), width=Inches(w_in))
     except Exception as e:
         cell.text = f"[gambar gagal dimuat: {e}]"
     return tbl
@@ -458,11 +466,19 @@ def build(cover, modules):
     # Caption uses cover_modul padded (06 Modul 1) per spec
     cover_pad = _cover_pad2(cover_modul) if cover_modul.isdigit() or cover_modul.replace("-","").isdigit() else cover_modul
     # if cover like "1-3" keep as-is for H1 prefix but captions need single number; use cover_pad as-is
-    for m, lbl in zip(modules, labels):
+    for mi, (m, lbl) in enumerate(zip(modules, labels)):
         lbl_pad2 = _pad2(lbl)
         lbl_norm = _norm_num(lbl)
         # H1 = "03 Modul 01" style (spec). Keep cover-independent for spec compliance.
         # If spec generic 1-12, prefix should be "03" for this laporan (as in template).
+        # Template quirk (1:1): empty Normal para SEBELUM H1 modul ke-3 dst,
+        # tapi TIDAK sebelum H1 modul 1-2 (body 35 children utk 3 modul).
+        # ponytail: kalau template direvisi konsisten, ganti ke separator seragam.
+        if mi >= 2:
+            try:
+                doc.add_paragraph("")
+            except Exception:
+                pass
         h1 = f"03 Modul {lbl_pad2}"
         title = str(m.get("title") or "").strip()
         if title and title not in (lbl, f"Modul {lbl}", f"03 Modul {lbl}", f"03 Modul {lbl_pad2}"):
